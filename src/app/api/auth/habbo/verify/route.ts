@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, ilike, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { players, races } from "@/lib/db/schema";
 import { verifyMotto } from "@/lib/habbo/motto";
@@ -14,20 +14,20 @@ export async function POST(request: Request) {
   }
 
   const [player] = await db
-    .select({ id: players.id, verificationCode: players.verificationCode })
+    .select({ id: players.id, habboUsername: players.habboUsername, verificationCode: players.verificationCode })
     .from(players)
     .innerJoin(races, eq(races.id, players.raceId))
-    .where(and(eq(players.habboUsername, habboUsername), inArray(races.status, ["setup", "active"])))
+    .where(and(ilike(players.habboUsername, habboUsername), inArray(races.status, ["setup", "active"])))
     .limit(1);
 
-  if (!player || !player.verificationCode) {
+  if (!player || !player.verificationCode || !player.habboUsername) {
     return NextResponse.json(
       { error: "No pending verification for that Habbo username" },
       { status: 404 }
     );
   }
 
-  const verified = await verifyMotto(habboUsername, player.verificationCode);
+  const verified = await verifyMotto(player.habboUsername, player.verificationCode);
   if (!verified) {
     return NextResponse.json(
       { error: "Motto doesn't match yet — set it in-game and try again" },

@@ -3,6 +3,7 @@ import { getPlayerSession } from "@/lib/auth/player-session";
 import { db } from "@/lib/db/client";
 import { players, races } from "@/lib/db/schema";
 import { HabboVerifyForm } from "./habbo-verify-form";
+import { RaceMap } from "./race-map";
 
 export default async function RacePage() {
   const session = await getPlayerSession();
@@ -29,7 +30,7 @@ export default async function RacePage() {
   const [race] = await db.select().from(races).where(eq(races.id, player.raceId));
 
   return (
-    <main style={{ maxWidth: 480, margin: "2rem auto" }}>
+    <main style={{ maxWidth: 900, margin: "2rem auto", padding: "0 20px" }}>
       <h1>Last Light</h1>
       <p>Welcome back, {player.habboUsername}.</p>
       <p>Race status: {race?.status}</p>
@@ -40,6 +41,7 @@ export default async function RacePage() {
       <p>
         Resources: {player.commonResource} common · {player.rareResource} rare
       </p>
+      <RaceMap />
     </main>
   );
 }

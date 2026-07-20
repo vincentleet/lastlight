@@ -43,20 +43,25 @@ export const races = pgTable("races", {
   completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
+// Node-map vocabulary (Slay the Spire-style): every tile is one of these.
+// "unknown" is a random event — effectConfig holds a pool of possible
+// outcomes rather than a single fixed effect; see resolveLandingEffect.
+export const TILE_TYPES = ["unknown", "merchant", "treasure", "rest", "enemy", "elite", "checkpoint"] as const;
+export type TileType = (typeof TILE_TYPES)[number];
+
 export const tiles = pgTable("tiles", {
   id: uuid("id").primaryKey().defaultRandom(),
   raceId: uuid("race_id")
     .notNull()
     .references(() => races.id, { onDelete: "cascade" }),
-  tileType: text("tile_type", {
-    enum: ["normal", "campfire", "shop", "checkpoint", "hazard"],
-  })
-    .notNull()
-    .default("normal"),
+  tileType: text("tile_type", { enum: TILE_TYPES }).notNull().default("unknown"),
   label: text("label"),
-  // Landing-on-this-tile effect (e.g. campfire resource grant, hazard penalty).
-  // Freeform here (unlike dice/craft effects) since board tiles are authored
-  // once per race by an admin, not assembled live from player choices.
+  // Landing-on-this-tile effect. For "unknown" tiles: { pool: Array<{ effectType,
+  // magnitude, resourceType? }> } — one entry is picked at random on landing.
+  // For every other type: a single { effectType, magnitude, resourceType? },
+  // applied deterministically on landing if present (optional — a tile can be
+  // purely a content marker with its mechanic handled elsewhere, e.g. "merchant"
+  // opening the shop UI rather than an automatic effect).
   effectConfig: jsonb("effect_config"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

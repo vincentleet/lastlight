@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, ilike, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { players, races } from "@/lib/db/schema";
 import { generateVerificationCode } from "@/lib/habbo/motto";
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     .select({ id: players.id })
     .from(players)
     .innerJoin(races, eq(races.id, players.raceId))
-    .where(and(eq(players.habboUsername, habboUsername), inArray(races.status, ["setup", "active"])))
+    .where(and(ilike(players.habboUsername, habboUsername), inArray(races.status, ["setup", "active"])))
     .limit(1);
 
   if (!player) {

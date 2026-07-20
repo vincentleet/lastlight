@@ -50,6 +50,38 @@ async function advanceTurn(raceId: string, currentIndex: number) {
   await db.update(races).set({ currentTurnIndex: nextIndex }).where(eq(races.id, raceId));
 }
 
+type LandingEffect = { effectType: string; magnitude: number; resourceType?: string };
+
+// "unknown" tiles pick one outcome at random from an authored pool; every
+// other tile type (if it has effectConfig at all) applies a single fixed
+// effect deterministically.
+function pickLandingEffect(tile: { tileType: string; effectConfig: unknown }): LandingEffect | null {
+  const config = tile.effectConfig as { pool?: LandingEffect[] } & Partial<LandingEffect>;
+  if (!config) return null;
+
+  if (tile.tileType === "unknown") {
+    const pool = config.pool;
+    if (!pool || pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  return config.effectType ? { effectType: config.effectType, magnitude: config.magnitude ?? 0, resourceType: config.resourceType } : null;
+}
+
+async function applyLandingEffect(playerId: string, effect: LandingEffect | null) {
+  if (!effect || effect.effectType !== "grant_resource" || !effect.resourceType) return;
+
+  const column = effect.resourceType === "rare" ? "rareResource" : "commonResource";
+  const [target] = await db.select().from(players).where(eq(players.id, playerId));
+  if (!target) return;
+
+  const current = column === "rareResource" ? target.rareResource : target.commonResource;
+  await db
+    .update(players)
+    .set({ [column]: current + effect.magnitude })
+    .where(eq(players.id, playerId));
+}
+
 // Walks the tile graph `steps` hops from `fromTileId`. Stops early at a
 // branch (>1 outgoing edge) or a dead end — branch route choice happens on
 // the player's web UI (a follow-up endpoint, not built in this scaffold),
@@ -111,6 +143,19 @@ export async function POST(request: Request) {
         .update(players)
         .set({ currentTileId: effect.fromTileId })
         .where(eq(players.id, lastEvent.playerId));
+
+      const landingEffect = effect.landingEffect as LandingEffect | null;
+      if (landingEffect?.effectType === "grant_resource" && landingEffect.resourceType) {
+        const column = landingEffect.resourceType === "rare" ? "rareResource" : "commonResource";
+        const [target] = await db.select().from(players).where(eq(players.id, lastEvent.playerId));
+        if (target) {
+          const current = column === "rareResource" ? target.rareResource : target.commonResource;
+          await db
+            .update(players)
+            .set({ [column]: Math.max(0, current - landingEffect.magnitude) })
+            .where(eq(players.id, lastEvent.playerId));
+        }
+      }
     } else if (effect?.type === "grant_resource" && typeof effect.magnitude === "number") {
       const column = effect.resourceType === "rare" ? "rareResource" : "commonResource";
       const [target] = await db.select().from(players).where(eq(players.id, lastEvent.playerId));
@@ -210,16 +255,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ pendingRoute: true, tileId: finalTileId });
     }
 
+    const [landedTile] = await db.select().from(tiles).where(eq(tiles.id, finalTileId));
+    const landingEffect = landedTile && landedTile.tileType !== "checkpoint" ? pickLandingEffect(landedTile) : null;
+    await applyLandingEffect(player.id, landingEffect);
+
     await db.insert(rollEvents).values({
       raceId: race.id,
       playerId: player.id,
       rollValue: value,
       effectType: face.effectType,
-      resolvedEffect: { type: "move", fromTileId: player.currentTileId, toTileId: finalTileId, magnitude: face.magnitude },
+      resolvedEffect: {
+        type: "move",
+        fromTileId: player.currentTileId,
+        toTileId: finalTileId,
+        magnitude: face.magnitude,
+        landingEffect,
+      },
       status: "resolved",
     });
 
-    const [landedTile] = await db.select().from(tiles).where(eq(tiles.id, finalTileId));
     if (landedTile?.tileType === "checkpoint") {
       await db
         .update(races)
@@ -230,7 +284,7 @@ export async function POST(request: Request) {
     }
 
     await advanceTurn(race.id, player.turnOrderIndex);
-    return NextResponse.json({ resolved: "move", tileId: finalTileId });
+    return NextResponse.json({ resolved: "move", tileId: finalTileId, landingEffect });
   }
 
   if (face.effectType === "grant_resource") {

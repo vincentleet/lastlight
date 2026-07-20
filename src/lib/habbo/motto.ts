@@ -1,12 +1,12 @@
 import { randomBytes } from "node:crypto";
 
 export function generateVerificationCode(): string {
-  return `LL-${randomBytes(3).toString("hex").toUpperCase()}`;
+  return `LASTLIGHT-${randomBytes(2).toString("hex").toUpperCase()}`;
 }
 
-// Confirm this shape against Habbo Origins' actual public API before relying
-// on it — HABBO_API_BASE_URL and the { motto } response field are a best
-// guess, not a verified integration.
+// Confirmed against the real endpoint: https://origins.habbo.com/api/public/users?name=<username>
+// returns { uniqueId, name, figureString, motto, online, lastAccessTime, memberSince,
+// profileVisible, ... }; a nonexistent username 404s.
 export async function fetchHabboMotto(username: string): Promise<string | null> {
   const base = process.env.HABBO_API_BASE_URL;
   if (!base) {

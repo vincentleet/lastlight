@@ -31,9 +31,9 @@ comma-separated list of Discord user IDs allowed into `/admin` — anyone else w
 with Discord gets bounced back to the login page. `STREAM_DECK_WEBHOOK_TOKEN` and
 `PLAYER_SESSION_SECRET` can both be generated with `openssl rand -hex 32`.
 
-`HABBO_API_BASE_URL` is a **best guess**, not a verified value — confirm the actual public
-API shape for Habbo Origins motto lookups (`src/lib/habbo/motto.ts`) before relying on it
-for a real event.
+`HABBO_API_BASE_URL` is a confirmed, working endpoint (`https://origins.habbo.com/api/public`)
+— `GET {this}/users?name=<username>` returns `{ motto, profileVisible, ... }`, 404s for a
+username that doesn't exist. See `src/lib/habbo/motto.ts`.
 
 ## 2. Set up the database
 
@@ -46,8 +46,14 @@ npm run db:push    # creates the tables in your Supabase Postgres
 a proper migration workflow once the schema stabilizes.
 
 There's no admin UI yet for creating a race/roster/board — see "What's deliberately not
-built yet" below. For now, insert rows directly (`npm run db:studio`) or write a seed
-script once the board layout for a real event is designed.
+built yet" below. For now:
+
+```bash
+npm run db:seed    # wipes any existing race and creates the example test race
+```
+
+Edit `scripts/seed-data/example-race.ts` to swap in a real roster/board/dice defaults for
+an actual event. `npm run db:studio` also works for one-off manual edits.
 
 ## 3. Run it locally
 
@@ -98,7 +104,8 @@ the Stream Deck itself.
 - **Targeted effects** (steal/block) — the webhook parks these as `pending_target` events;
   there's no target-picker UI or auto-random timeout fallback yet.
 - **Admin authoring UI** — no UI for creating a race, roster, board layout, dice defaults,
-  shop, or crafting catalog. Use `npm run db:studio` or a seed script for now.
+  shop, or crafting catalog. Use `npm run db:seed` (edit `scripts/seed-data/example-race.ts`
+  first) or `npm run db:studio` for now.
 - **Discord OAuth as a player fallback login** — only Habbo motto verification is wired up
   for players; Discord is only implemented for the admin panel so far.
 - **Resource and boss-fight naming/theming** — the schema uses generic `common`/`rare`
