@@ -1,10 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getPlayerSession } from "@/lib/auth/player-session";
 import { db } from "@/lib/db/client";
-import { craftableUpgrades, playerDiceFaces, players, races } from "@/lib/db/schema";
+import { craftableUpgrades, playerDiceFaces, players, races, rollEvents } from "@/lib/db/schema";
+import { getRouteOptions } from "@/lib/game/roll-resolution";
 import { HabboVerifyForm } from "./habbo-verify-form";
 import { RaceMap } from "./race-map";
 import { CraftPanel } from "./craft-panel";
+import { RouteChoicePanel } from "./route-choice-panel";
 import { DiceBoxes } from "@/components/DiceBoxes";
 
 export default async function RacePage() {
@@ -37,6 +39,16 @@ export default async function RacePage() {
     .from(craftableUpgrades)
     .where(eq(craftableUpgrades.raceId, player.raceId));
 
+  const [pendingRoute] = await db
+    .select()
+    .from(rollEvents)
+    .where(and(eq(rollEvents.playerId, player.id), eq(rollEvents.status, "pending_route")))
+    .orderBy(desc(rollEvents.createdAt))
+    .limit(1);
+
+  const pendingRouteEffect = pendingRoute?.resolvedEffect as { reachedTileId: string } | undefined;
+  const routeOptions = pendingRouteEffect ? await getRouteOptions(pendingRouteEffect.reachedTileId) : null;
+
   return (
     <main style={{ maxWidth: 900, margin: "2rem auto", padding: "0 20px" }}>
       <h1>Last Light</h1>
@@ -49,6 +61,13 @@ export default async function RacePage() {
       <p>
         Resources: {player.commonResource} common · {player.rareResource} rare
       </p>
+
+      {routeOptions && (
+        <>
+          <h2 style={{ marginTop: 32 }}>Choose your path</h2>
+          <RouteChoicePanel initialOptions={routeOptions} />
+        </>
+      )}
 
       <h2 style={{ marginTop: 32 }}>Your dice</h2>
       <DiceBoxes faces={diceFaces} />

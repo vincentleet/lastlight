@@ -31,6 +31,7 @@ async function main() {
         raceId: race.id,
         tileType: tile.tileType,
         label: tile.label,
+        codeword: tile.codeword,
         effectConfig: tile.effectConfig ?? null,
       })
       .returning();

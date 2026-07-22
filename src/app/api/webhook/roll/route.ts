@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { diceFaceDefaults, players, playerDiceFaces, races, rollEvents, tileEdges, tiles } from "@/lib/db/schema";
+import { diceFaceDefaults, players, playerDiceFaces, races, rollEvents, tiles } from "@/lib/db/schema";
+import {
+  advanceTurn,
+  applyLandingEffect,
+  type LandingEffect,
+  pickLandingEffect,
+  walkMovement,
+} from "@/lib/game/roll-resolution";
 
 type RollBody =
   | { action: "roll"; value: number }
@@ -32,79 +39,6 @@ async function getActiveRaceAndPlayer() {
     .limit(1);
 
   return { race, player: player ?? null };
-}
-
-async function advanceTurn(raceId: string, currentIndex: number) {
-  const roster = await db
-    .select({ turnOrderIndex: players.turnOrderIndex })
-    .from(players)
-    .where(eq(players.raceId, raceId))
-    .orderBy(players.turnOrderIndex);
-
-  if (roster.length === 0) return;
-
-  const indexes = roster.map((p) => p.turnOrderIndex);
-  const position = indexes.indexOf(currentIndex);
-  const nextIndex = indexes[(position + 1) % indexes.length];
-
-  await db.update(races).set({ currentTurnIndex: nextIndex }).where(eq(races.id, raceId));
-}
-
-type LandingEffect = { effectType: string; magnitude: number; resourceType?: string };
-
-// "unknown" tiles pick one outcome at random from an authored pool; every
-// other tile type (if it has effectConfig at all) applies a single fixed
-// effect deterministically.
-function pickLandingEffect(tile: { tileType: string; effectConfig: unknown }): LandingEffect | null {
-  const config = tile.effectConfig as { pool?: LandingEffect[] } & Partial<LandingEffect>;
-  if (!config) return null;
-
-  if (tile.tileType === "unknown") {
-    const pool = config.pool;
-    if (!pool || pool.length === 0) return null;
-    return pool[Math.floor(Math.random() * pool.length)];
-  }
-
-  return config.effectType ? { effectType: config.effectType, magnitude: config.magnitude ?? 0, resourceType: config.resourceType } : null;
-}
-
-async function applyLandingEffect(playerId: string, effect: LandingEffect | null) {
-  if (!effect || effect.effectType !== "grant_resource" || !effect.resourceType) return;
-
-  const column = effect.resourceType === "rare" ? "rareResource" : "commonResource";
-  const [target] = await db.select().from(players).where(eq(players.id, playerId));
-  if (!target) return;
-
-  const current = column === "rareResource" ? target.rareResource : target.commonResource;
-  await db
-    .update(players)
-    .set({ [column]: current + effect.magnitude })
-    .where(eq(players.id, playerId));
-}
-
-// Walks the tile graph `steps` hops from `fromTileId`. Stops early at a
-// branch (>1 outgoing edge) or a dead end — branch route choice happens on
-// the player's web UI (a follow-up endpoint, not built in this scaffold),
-// not automatically here.
-async function walkMovement(fromTileId: string, steps: number) {
-  let currentTileId = fromTileId;
-  let remaining = steps;
-  let pendingRoute = false;
-
-  while (remaining > 0) {
-    const edges = await db.select().from(tileEdges).where(eq(tileEdges.fromTileId, currentTileId));
-
-    if (edges.length === 0) break;
-    if (edges.length > 1) {
-      pendingRoute = true;
-      break;
-    }
-
-    currentTileId = edges[0].toTileId;
-    remaining -= 1;
-  }
-
-  return { finalTileId: currentTileId, remainingSteps: remaining, pendingRoute };
 }
 
 export async function POST(request: Request) {

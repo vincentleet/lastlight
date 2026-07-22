@@ -15,13 +15,18 @@ export const exampleTiles: Array<{
   key: string;
   tileType: TileType;
   label: string;
+  // A fixed word for this room — a sign posted there in Habbo, or something
+  // the host tells arriving players. Only branch destinations strictly need
+  // one, but every tile has one here for consistency.
+  codeword: string;
   effectConfig?: { pool: LandingEffect[] } | LandingEffect;
 }> = [
-  { key: "start", tileType: "rest", label: "Start" },
+  { key: "start", tileType: "rest", label: "Start", codeword: "CAMPFIRE" },
   {
     key: "event-1",
     tileType: "unknown",
     label: "Mystery event",
+    codeword: "SHADOWS",
     effectConfig: {
       pool: [
         { effectType: "grant_resource", magnitude: 2, resourceType: "common" },
@@ -30,16 +35,17 @@ export const exampleTiles: Array<{
       ],
     },
   },
-  { key: "risky", tileType: "elite", label: "Elite fight" },
+  { key: "risky", tileType: "elite", label: "Elite fight", codeword: "IRONFIST" },
   {
     key: "safe",
     tileType: "treasure",
     label: "Treasure",
+    codeword: "GOLDRUSH",
     effectConfig: { effectType: "grant_resource", magnitude: 3, resourceType: "common" },
   },
-  { key: "merge", tileType: "merchant", label: "Shop" },
-  { key: "late", tileType: "enemy", label: "Encounter" },
-  { key: "checkpoint", tileType: "checkpoint", label: "Finish line" },
+  { key: "merge", tileType: "merchant", label: "Shop", codeword: "BAZAAR" },
+  { key: "late", tileType: "enemy", label: "Encounter", codeword: "AMBUSH" },
+  { key: "checkpoint", tileType: "checkpoint", label: "Finish line", codeword: "SUNRISE" },
 ];
 
 export const exampleEdges: Array<{ from: string; to: string; routeLabel?: string }> = [

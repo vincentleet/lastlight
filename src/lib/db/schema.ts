@@ -57,6 +57,12 @@ export const tiles = pgTable("tiles", {
     .references(() => races.id, { onDelete: "cascade" }),
   tileType: text("tile_type", { enum: TILE_TYPES }).notNull().default("unknown"),
   label: text("label"),
+  // A fixed, admin-authored word for this room (e.g. a sign posted there in
+  // Habbo, or something the host tells arriving players). When this tile is
+  // a branch destination, the player has to type it on the web to confirm
+  // they're actually there before a route choice resolves — see
+  // /api/race/choose-route. Null on tiles that never need this check.
+  codeword: text("codeword"),
   // Landing-on-this-tile effect. For "unknown" tiles: { pool: Array<{ effectType,
   // magnitude, resourceType? }> } — one entry is picked at random on landing.
   // For every other type: a single { effectType, magnitude, resourceType? },

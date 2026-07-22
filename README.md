@@ -96,7 +96,25 @@ effects a player can buy (self-service on `/race`, any time, not gated by turn o
 board position); buying one lets them pick which of their 6 slots it overwrites. The
 active player's current 6 effects show on the stream overlay whenever it's their turn.
 
-## 6. Deploy
+## 6. Branch route choice
+
+When a roll's movement would carry a player past a tile with more than one outgoing edge,
+the webhook stops them there and marks the roll `pending_route` instead of guessing. Their
+`/race` page then shows a "Choose your path" panel — each option's tile type/label is shown
+up front, so players know what's coming (a shop vs. a mini-game, etc.) before deciding.
+
+Each room (`tiles.codeword`) has a fixed word set at board-authoring time — a sign posted
+in that room in Habbo, or something you tell arriving players. Picking an option reveals a
+"enter the codeword for this room" box; `POST /api/race/choose-route` only resolves the move
+(position updates, turn advances) if the submitted word matches that tile's codeword —
+wrong word, no movement, they can just retry. This is deliberate: without that check, a
+player could click one option on the web while physically walking somewhere else in-game,
+and there'd be no way to catch the mismatch. If the remaining movement crosses another
+branch after confirming, the same panel re-prompts with the next set of options, still
+within the same roll. Tiles without a `codeword` skip the check entirely (useful for tiles
+that are never branch destinations).
+
+## 7. Deploy
 
 1. Push this repo to GitHub.
 2. Create a [Railway](https://railway.app) project, add this repo as a service.
@@ -108,9 +126,6 @@ active player's current 6 effects show on the stream overlay whenever it's their
 
 - **Boss fight mechanics** — not designed. `boss_fight_attempts` exists in the schema but
   nothing writes to it yet.
-- **Branch route selection** — the webhook stops movement at a branch tile and marks the
-  roll event `pending_route`; there's no endpoint yet for the player to pick a route on
-  the web (the design decision is that they should).
 - **Targeted effects** (steal/block) — the webhook parks these as `pending_target` events;
   there's no target-picker UI or auto-random timeout fallback yet.
 - **Admin authoring UI** — no UI for creating a race, roster, board layout, dice defaults,
