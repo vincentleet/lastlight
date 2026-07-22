@@ -1,11 +1,19 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getPlayerSession } from "@/lib/auth/player-session";
 import { db } from "@/lib/db/client";
-import { craftableUpgrades, playerDiceFaces, players, races, tiles } from "@/lib/db/schema";
+import { craftableUpgrades, playerDiceFaces, players, races, rollEvents, tiles } from "@/lib/db/schema";
 import { HabboVerifyForm } from "./habbo-verify-form";
 import { RaceMap } from "./race-map";
 import { CraftPanel } from "./craft-panel";
 import { DiceBoxes } from "@/components/DiceBoxes";
+
+const mainBoxStyle: React.CSSProperties = {
+  border: "2px solid var(--accent)",
+  borderRadius: 16,
+  padding: "32px 28px",
+  textAlign: "center",
+  marginTop: 24,
+};
 
 export default async function RacePage() {
   const session = await getPlayerSession();
@@ -42,36 +50,49 @@ export default async function RacePage() {
     ? await db.select().from(craftableUpgrades).where(eq(craftableUpgrades.raceId, player.raceId))
     : [];
 
+  const [pendingRoute] = await db
+    .select({ id: rollEvents.id })
+    .from(rollEvents)
+    .where(and(eq(rollEvents.playerId, player.id), eq(rollEvents.status, "pending_route")))
+    .limit(1);
+
+  const isMyTurn = race?.currentTurnIndex === player.turnOrderIndex;
+
   return (
     <main style={{ maxWidth: 900, margin: "2rem auto", padding: "0 20px" }}>
       <h1>Last Light</h1>
       <p>Welcome back, {player.habboUsername}.</p>
-      <p>Race status: {race?.status}</p>
       <p>
-        Your turn slot: {player.turnOrderIndex}
-        {race?.currentTurnIndex === player.turnOrderIndex && " — it's your turn!"}
+        Race status: {race?.status} · Resources: {player.commonResource} common · {player.rareResource} rare
       </p>
-      <p>
-        Resources: {player.commonResource} common · {player.rareResource} rare
-      </p>
+
+      {atShop ? (
+        <section style={mainBoxStyle}>
+          <h2 style={{ fontSize: "1.6rem", marginBottom: 16 }}>Shop</h2>
+          <div style={{ textAlign: "left" }}>
+            <CraftPanel
+              upgrades={upgrades}
+              playerFaces={diceFaces}
+              commonResource={player.commonResource}
+              rareResource={player.rareResource}
+            />
+          </div>
+        </section>
+      ) : (
+        <section style={mainBoxStyle}>
+          <h2 style={{ fontSize: "1.6rem", marginBottom: 12 }}>Race</h2>
+          <p style={{ fontSize: "1.2rem" }}>
+            {pendingRoute
+              ? "Choose your path on the board below."
+              : isMyTurn
+                ? "Roll the Dicemaster in the game!"
+                : "Wait for your turn…"}
+          </p>
+        </section>
+      )}
 
       <h2 style={{ marginTop: 32 }}>Your dice</h2>
       <DiceBoxes faces={diceFaces} />
-
-      <h2 style={{ marginTop: 32 }}>Shop</h2>
-      {atShop ? (
-        <CraftPanel
-          upgrades={upgrades}
-          playerFaces={diceFaces}
-          commonResource={player.commonResource}
-          rareResource={player.rareResource}
-        />
-      ) : (
-        <p style={{ color: "var(--ink-soft)" }}>
-          The shop is only open at a Merchant tile — you&apos;re currently at{" "}
-          {currentTile?.label ?? "an unknown location"}.
-        </p>
-      )}
 
       <h2 style={{ marginTop: 32 }}>Board</h2>
       <RaceMap />
