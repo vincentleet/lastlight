@@ -23,8 +23,9 @@ Mysteries.
    app's client ID/secret (create one at the
    [Discord Developer Portal](https://discord.com/developers/applications); redirect URL
    is `<your Supabase project URL>/auth/v1/callback`).
-5. In **Database → Replication**, enable replication on the `races` and `players` tables
-   — the stream overlay subscribes to these via Supabase Realtime.
+5. In **Database → Replication**, enable replication on the `races`, `players`, and
+   `player_dice_faces` tables — the stream overlay subscribes to these via Supabase
+   Realtime.
 
 Copy `.env.example` to `.env.local` and fill in all values. `ADMIN_DISCORD_IDS` is a
 comma-separated list of Discord user IDs allowed into `/admin` — anyone else who signs in
@@ -86,7 +87,16 @@ Content-Type: application/json
 The active player is resolved from the fixed turn order — no player selection needed on
 the Stream Deck itself.
 
-## 5. Deploy
+## 5. Dice crafting
+
+Each player has 6 fixed-numbered dice faces (`player_dice_faces`), seeded from the race's
+defaults at start. The roll a face produces is permanent — 1 always means "face 1" — but
+the *effect* behind each face is swappable. `craftable_upgrades` is the shop catalog of
+effects a player can buy (self-service on `/race`, any time, not gated by turn order or
+board position); buying one lets them pick which of their 6 slots it overwrites. The
+active player's current 6 effects show on the stream overlay whenever it's their turn.
+
+## 6. Deploy
 
 1. Push this repo to GitHub.
 2. Create a [Railway](https://railway.app) project, add this repo as a service.
@@ -110,3 +120,7 @@ the Stream Deck itself.
   for players; Discord is only implemented for the admin panel so far.
 - **Resource and boss-fight naming/theming** — the schema uses generic `common`/`rare`
   resource types; no in-fiction names chosen yet.
+- **`special_event` dice effect** — a face/upgrade can be typed `special_event`, and it's
+  logged when rolled, but there's no mechanic behind it yet (same as `reroll`/`skip_hazard`)
+  — intended for whatever the host wants to improvise, or a future random-pool mechanic
+  like the one "unknown" tiles already have.

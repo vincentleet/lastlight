@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm";
 import { getPlayerSession } from "@/lib/auth/player-session";
 import { db } from "@/lib/db/client";
-import { players, races } from "@/lib/db/schema";
+import { craftableUpgrades, playerDiceFaces, players, races } from "@/lib/db/schema";
 import { HabboVerifyForm } from "./habbo-verify-form";
 import { RaceMap } from "./race-map";
+import { CraftPanel } from "./craft-panel";
+import { DiceBoxes } from "@/components/DiceBoxes";
 
 export default async function RacePage() {
   const session = await getPlayerSession();
@@ -29,6 +31,12 @@ export default async function RacePage() {
 
   const [race] = await db.select().from(races).where(eq(races.id, player.raceId));
 
+  const diceFaces = await db.select().from(playerDiceFaces).where(eq(playerDiceFaces.playerId, player.id));
+  const upgrades = await db
+    .select()
+    .from(craftableUpgrades)
+    .where(eq(craftableUpgrades.raceId, player.raceId));
+
   return (
     <main style={{ maxWidth: 900, margin: "2rem auto", padding: "0 20px" }}>
       <h1>Last Light</h1>
@@ -41,6 +49,19 @@ export default async function RacePage() {
       <p>
         Resources: {player.commonResource} common · {player.rareResource} rare
       </p>
+
+      <h2 style={{ marginTop: 32 }}>Your dice</h2>
+      <DiceBoxes faces={diceFaces} />
+
+      <h2 style={{ marginTop: 32 }}>Shop</h2>
+      <CraftPanel
+        upgrades={upgrades}
+        playerFaces={diceFaces}
+        commonResource={player.commonResource}
+        rareResource={player.rareResource}
+      />
+
+      <h2 style={{ marginTop: 32 }}>Board</h2>
       <RaceMap />
     </main>
   );

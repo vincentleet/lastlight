@@ -65,3 +65,67 @@ export const exampleDiceFaceDefaults: Array<{
   { faceValue: 5, effectType: "grant_resource", magnitude: 1, resourceType: "rare" },
   { faceValue: 6, effectType: "move", magnitude: 4 },
 ];
+
+// Shop catalog: swappable dice-face effects. Face-agnostic — the player
+// picks which of their 6 slots to install one into (see /race craft panel).
+export const exampleCraftableUpgrades: Array<{
+  name: string;
+  description: string;
+  costCommon: number;
+  costRare: number;
+  effectType: EffectType;
+  magnitude: number;
+  resourceType?: ResourceType;
+}> = [
+  {
+    name: "Quick Step",
+    description: "Move 1 block further.",
+    costCommon: 2,
+    costRare: 0,
+    effectType: "move",
+    magnitude: 1,
+  },
+  {
+    name: "Sprint",
+    description: "Move 2 blocks further.",
+    costCommon: 4,
+    costRare: 0,
+    effectType: "move",
+    magnitude: 2,
+  },
+  {
+    name: "Lucky Find",
+    description: "Gain 1 coin.",
+    costCommon: 1,
+    costRare: 0,
+    effectType: "grant_resource",
+    magnitude: 1,
+    resourceType: "common",
+  },
+  {
+    name: "Big Score",
+    description: "Gain 2 coins.",
+    costCommon: 3,
+    costRare: 0,
+    effectType: "grant_resource",
+    magnitude: 2,
+    resourceType: "common",
+  },
+  {
+    name: "Gem Vein",
+    description: "Gain 1 rare resource.",
+    costCommon: 3,
+    costRare: 1,
+    effectType: "grant_resource",
+    magnitude: 1,
+    resourceType: "rare",
+  },
+  {
+    name: "Wildcard",
+    description: "Trigger a special event.",
+    costCommon: 5,
+    costRare: 1,
+    effectType: "special_event",
+    magnitude: 0,
+  },
+];

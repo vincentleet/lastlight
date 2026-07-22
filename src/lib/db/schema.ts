@@ -20,6 +20,7 @@ export const EFFECT_TYPES = [
   "skip_hazard",
   "steal_resource",
   "block_player",
+  "special_event",
   "noop",
 ] as const;
 export type EffectType = (typeof EFFECT_TYPES)[number];
@@ -134,6 +135,9 @@ export const playerDiceFaces = pgTable(
   (table) => [unique("player_dice_faces_player_face_unique").on(table.playerId, table.faceValue)]
 );
 
+// A catalog entry is a swappable dice-face effect, not bound to any
+// particular face — the player picks which of their 6 slots it goes into at
+// purchase time (see playerCraftedUpgrades).
 export const craftableUpgrades = pgTable("craftable_upgrades", {
   id: uuid("id").primaryKey().defaultRandom(),
   raceId: uuid("race_id")
@@ -143,13 +147,27 @@ export const craftableUpgrades = pgTable("craftable_upgrades", {
   description: text("description"),
   costCommon: integer("cost_common").notNull().default(0),
   costRare: integer("cost_rare").notNull().default(0),
-  targetFaceValue: integer("target_face_value").notNull(),
   effectType: text("effect_type", { enum: EFFECT_TYPES }).notNull(),
   magnitude: integer("magnitude").notNull().default(0),
   resourceType: text("resource_type", { enum: RESOURCE_TYPES }),
   prerequisiteUpgradeId: uuid("prerequisite_upgrade_id").references(
     (): AnyPgColumn => craftableUpgrades.id
   ),
+});
+
+// Audit log of dice-face installs — playerDiceFaces holds the live state
+// (one row per face, overwritten on reinstall); this records the history of
+// what was bought and where it was slotted in.
+export const playerCraftedUpgrades = pgTable("player_crafted_upgrades", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  playerId: uuid("player_id")
+    .notNull()
+    .references(() => players.id, { onDelete: "cascade" }),
+  craftableUpgradeId: uuid("craftable_upgrade_id")
+    .notNull()
+    .references(() => craftableUpgrades.id, { onDelete: "cascade" }),
+  installedFaceValue: integer("installed_face_value").notNull(),
+  installedAt: timestamp("installed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const shopItems = pgTable("shop_items", {
