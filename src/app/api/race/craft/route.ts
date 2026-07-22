@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { craftableUpgrades, playerCraftedUpgrades, playerDiceFaces, players } from "@/lib/db/schema";
+import { craftableUpgrades, playerCraftedUpgrades, playerDiceFaces, players, tiles } from "@/lib/db/schema";
 import { getPlayerSession } from "@/lib/auth/player-session";
 
 export async function POST(request: Request) {
@@ -23,6 +23,13 @@ export async function POST(request: Request) {
   const [player] = await db.select().from(players).where(eq(players.id, session.playerId));
   if (!player) {
     return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  }
+
+  const [currentTile] = player.currentTileId
+    ? await db.select().from(tiles).where(eq(tiles.id, player.currentTileId))
+    : [];
+  if (currentTile?.tileType !== "merchant") {
+    return NextResponse.json({ error: "You have to be at a Merchant tile to shop" }, { status: 409 });
   }
 
   const [upgrade] = await db

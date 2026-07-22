@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { TILE_STYLE } from "@/lib/game/tile-style";
 
 type MapTile = {
@@ -13,7 +13,12 @@ type MapTile = {
 
 type MapEdge = { fromTileId: string; toTileId: string; routeLabel: string | null };
 
-type MapState = { currentTileId: string | null; tiles: MapTile[]; edges: MapEdge[] };
+type MapState = {
+  currentTileId: string | null;
+  pendingRouteOptions: string[];
+  tiles: MapTile[];
+  edges: MapEdge[];
+};
 
 const COL_SPACING = 140;
 const ROW_SPACING = 110;
@@ -27,22 +32,55 @@ function position(tile: MapTile) {
 export function RaceMap() {
   const [state, setState] = useState<MapState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function load() {
+    try {
+      const res = await fetch("/api/race/map", { cache: "no-store" });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to load map");
+      setState(await res.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load map");
+    }
+  }
 
   useEffect(() => {
-    let active = true;
-
-    fetch("/api/race/map")
-      .then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).error ?? "Failed to load map");
-        return res.json();
-      })
-      .then((data) => active && setState(data))
-      .catch((err) => active && setError(err.message));
-
-    return () => {
-      active = false;
-    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedTileId) return;
+
+    setSubmitting(true);
+    setFormError(null);
+
+    const res = await fetch("/api/race/choose-route", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toTileId: selectedTileId, code }),
+    });
+    const data = await res.json();
+
+    setSubmitting(false);
+    if (!res.ok) {
+      setFormError(data.error ?? "Couldn't confirm that choice");
+      return;
+    }
+
+    setSelectedTileId(null);
+    setCode("");
+
+    if (data.pendingRoute) {
+      await load();
+    } else {
+      window.location.reload();
+    }
+  }
 
   if (error) return <p style={{ color: "crimson" }}>{error}</p>;
   if (!state) return <p>Loading map…</p>;
@@ -52,50 +90,125 @@ export function RaceMap() {
   const width = maxDepth * COL_SPACING + PADDING * 2;
   const height = maxRow * ROW_SPACING + PADDING * 2;
   const byId = new Map(state.tiles.map((t) => [t.id, t]));
+  const selectableIds = new Set(state.pendingRouteOptions);
+  const selectedTile = selectedTileId ? byId.get(selectedTileId) : null;
 
   return (
     <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
-      <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-        <svg width={width} height={height} style={{ minWidth: width }}>
-          {state.edges.map((edge, i) => {
-            const from = byId.get(edge.fromTileId);
-            const to = byId.get(edge.toTileId);
-            if (!from || !to) return null;
-            const a = position(from);
-            const b = position(to);
-            return (
-              <line
-                key={i}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke="var(--line)"
-                strokeWidth={2}
-                strokeDasharray="4 4"
-              />
-            );
-          })}
-          {state.tiles.map((tile) => {
-            const { x, y } = position(tile);
-            const style = TILE_STYLE[tile.tileType] ?? TILE_STYLE.unknown;
-            const isCurrent = tile.id === state.currentTileId;
-            return (
-              <g key={tile.id}>
-                {isCurrent && (
-                  <circle cx={x} cy={y} r={NODE_RADIUS + 6} fill="none" stroke="var(--accent)" strokeWidth={3} />
-                )}
-                <circle cx={x} cy={y} r={NODE_RADIUS} fill={style.color} />
-                <text x={x} y={y + 6} textAnchor="middle" fontSize={18} fill="#0b0f14" fontWeight={700}>
-                  {style.glyph}
-                </text>
-                <text x={x} y={y + NODE_RADIUS + 16} textAnchor="middle" fontSize={11} fill="var(--ink-soft)">
-                  {tile.label ?? style.label}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+      <div>
+        {selectableIds.size > 0 && !selectedTileId && (
+          <p style={{ marginBottom: 8 }}>Choose your path — click a highlighted node below.</p>
+        )}
+        <div style={{ position: "relative", overflowX: "auto", maxWidth: "100%" }}>
+          <svg width={width} height={height} style={{ minWidth: width, display: "block" }}>
+            {state.edges.map((edge, i) => {
+              const from = byId.get(edge.fromTileId);
+              const to = byId.get(edge.toTileId);
+              if (!from || !to) return null;
+              const a = position(from);
+              const b = position(to);
+              return (
+                <line
+                  key={i}
+                  x1={a.x}
+                  y1={a.y}
+                  x2={b.x}
+                  y2={b.y}
+                  stroke="var(--line)"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                />
+              );
+            })}
+            {state.tiles.map((tile) => {
+              const { x, y } = position(tile);
+              const style = TILE_STYLE[tile.tileType] ?? TILE_STYLE.unknown;
+              const isCurrent = tile.id === state.currentTileId;
+              const isSelectable = selectableIds.has(tile.id);
+              return (
+                <g
+                  key={tile.id}
+                  onClick={
+                    isSelectable
+                      ? () => {
+                          setSelectedTileId(tile.id);
+                          setFormError(null);
+                        }
+                      : undefined
+                  }
+                  style={isSelectable ? { cursor: "pointer" } : undefined}
+                >
+                  {isCurrent && (
+                    <circle cx={x} cy={y} r={NODE_RADIUS + 6} fill="none" stroke="var(--accent)" strokeWidth={3} />
+                  )}
+                  {isSelectable && (
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={NODE_RADIUS + 6}
+                      fill="none"
+                      stroke={tile.id === selectedTileId ? "var(--accent)" : "#f2b134"}
+                      strokeWidth={3}
+                      strokeDasharray={tile.id === selectedTileId ? undefined : "3 3"}
+                    />
+                  )}
+                  <circle cx={x} cy={y} r={NODE_RADIUS} fill={style.color} />
+                  <text x={x} y={y + 6} textAnchor="middle" fontSize={18} fill="#0b0f14" fontWeight={700}>
+                    {style.glyph}
+                  </text>
+                  <text x={x} y={y + NODE_RADIUS + 16} textAnchor="middle" fontSize={11} fill="var(--ink-soft)">
+                    {tile.label ?? style.label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+
+          {selectedTile &&
+            (() => {
+              const { x, y } = position(selectedTile);
+              return (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: x,
+                    top: y + NODE_RADIUS + 34,
+                    transform: "translateX(-50%)",
+                    background: "var(--bg)",
+                    border: "1px solid var(--accent)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    minWidth: 200,
+                    zIndex: 1,
+                  }}
+                >
+                  <form onSubmit={submit}>
+                    <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>
+                      Codeword for {selectedTile.label ?? "this room"}
+                      <input
+                        value={code}
+                        onChange={(event) => setCode(event.target.value)}
+                        autoFocus
+                        required
+                        style={{ display: "block", marginTop: 4, width: "100%" }}
+                      />
+                    </label>
+                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      <button type="submit" disabled={submitting}>
+                        {submitting ? "Checking…" : "Confirm"}
+                      </button>
+                      <button type="button" onClick={() => setSelectedTileId(null)} disabled={submitting}>
+                        Cancel
+                      </button>
+                    </div>
+                    {formError && (
+                      <p style={{ color: "crimson", fontSize: 12, marginTop: 6 }}>{formError}</p>
+                    )}
+                  </form>
+                </div>
+              );
+            })()}
+        </div>
       </div>
 
       <div>

@@ -92,26 +92,27 @@ the Stream Deck itself.
 Each player has 6 fixed-numbered dice faces (`player_dice_faces`), seeded from the race's
 defaults at start. The roll a face produces is permanent — 1 always means "face 1" — but
 the *effect* behind each face is swappable. `craftable_upgrades` is the shop catalog of
-effects a player can buy (self-service on `/race`, any time, not gated by turn order or
-board position); buying one lets them pick which of their 6 slots it overwrites. The
-active player's current 6 effects show on the stream overlay whenever it's their turn.
+effects a player can buy — self-service on `/race`, not gated by turn order, but **gated by
+board position**: the Shop section only renders (and `POST /api/race/craft` only accepts
+purchases) while the player's `currentTileId` is a `merchant` tile. Buying an upgrade lets
+them pick which of their 6 slots it overwrites. The active player's current 6 effects show
+on the stream overlay whenever it's their turn.
 
 ## 6. Branch route choice
 
 When a roll's movement would carry a player past a tile with more than one outgoing edge,
-the webhook stops them there and marks the roll `pending_route` instead of guessing. Their
-`/race` page then shows a "Choose your path" panel — each option's tile type/label is shown
-up front, so players know what's coming (a shop vs. a mini-game, etc.) before deciding.
+the webhook stops them there and marks the roll `pending_route` instead of guessing. The
+board on `/race` (`race-map.tsx`) rings the reachable next tiles — clicking one directly on
+the map reveals an inline "codeword for this room" box positioned right under that node.
 
 Each room (`tiles.codeword`) has a fixed word set at board-authoring time — a sign posted
-in that room in Habbo, or something you tell arriving players. Picking an option reveals a
-"enter the codeword for this room" box; `POST /api/race/choose-route` only resolves the move
-(position updates, turn advances) if the submitted word matches that tile's codeword —
-wrong word, no movement, they can just retry. This is deliberate: without that check, a
-player could click one option on the web while physically walking somewhere else in-game,
-and there'd be no way to catch the mismatch. If the remaining movement crosses another
-branch after confirming, the same panel re-prompts with the next set of options, still
-within the same roll. Tiles without a `codeword` skip the check entirely (useful for tiles
+in that room in Habbo, or something you tell arriving players. `POST /api/race/choose-route`
+only resolves the move (position updates, turn advances) if the submitted word matches that
+tile's codeword — wrong word, no movement, they can just retry. This is deliberate: without
+that check, a player could click one option on the web while physically walking somewhere
+else in-game, and there'd be no way to catch the mismatch. If the remaining movement crosses
+another branch after confirming, the map just re-highlights the next set of reachable tiles,
+still within the same roll. Tiles without a `codeword` skip the check entirely (useful for tiles
 that are never branch destinations).
 
 ## 7. Deploy

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { players, tileEdges, tiles } from "@/lib/db/schema";
+import { players, rollEvents, tileEdges, tiles } from "@/lib/db/schema";
 import { getPlayerSession } from "@/lib/auth/player-session";
+import { getRouteOptions } from "@/lib/game/roll-resolution";
 
 // Assigns each tile a column (longest-path depth from any root tile) and a
 // row (position within its column), so the client can lay the graph out as
@@ -78,8 +79,19 @@ export async function GET() {
   const layout = computeLayout(tileIds, raceEdges);
   const layoutById = new Map(layout.map((l) => [l.id, l]));
 
+  const [pending] = await db
+    .select()
+    .from(rollEvents)
+    .where(and(eq(rollEvents.playerId, player.id), eq(rollEvents.status, "pending_route")))
+    .orderBy(desc(rollEvents.createdAt))
+    .limit(1);
+
+  const pendingEffect = pending?.resolvedEffect as { reachedTileId: string } | undefined;
+  const pendingOptions = pendingEffect ? await getRouteOptions(pendingEffect.reachedTileId) : [];
+
   return NextResponse.json({
     currentTileId: player.currentTileId,
+    pendingRouteOptions: pendingOptions.map((option) => option.tileId),
     tiles: raceTiles.map((tile) => {
       const { depth, row } = layoutById.get(tile.id)!;
       return { id: tile.id, tileType: tile.tileType, label: tile.label, depth, row };
