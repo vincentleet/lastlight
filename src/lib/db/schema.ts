@@ -105,6 +105,10 @@ export const players = pgTable(
     // in-game motto, checked against Habbo's public API.
     verificationCode: text("verification_code"),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    // Captured from the public API at verification time; feeds the avatar
+    // image (https://www.habbo.com/habbo-imaging/avatarimage?figure=...).
+    // Not kept live-synced — just a snapshot from when they verified.
+    figureString: text("figure_string"),
     authMethod: text("auth_method", { enum: ["habbo_motto", "discord"] }),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
   },

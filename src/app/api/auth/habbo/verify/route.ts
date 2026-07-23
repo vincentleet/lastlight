@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, ilike, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { players, races } from "@/lib/db/schema";
-import { verifyMotto } from "@/lib/habbo/motto";
+import { fetchHabboUser } from "@/lib/habbo/motto";
 import { mintPlayerSession } from "@/lib/auth/player-session";
 
 export async function POST(request: Request) {
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const verified = await verifyMotto(player.habboUsername, player.verificationCode);
-  if (!verified) {
+  const habboUser = await fetchHabboUser(player.habboUsername);
+  if (habboUser?.motto !== player.verificationCode) {
     return NextResponse.json(
       { error: "Motto doesn't match yet — set it in-game and try again" },
       { status: 409 }
@@ -37,7 +37,12 @@ export async function POST(request: Request) {
 
   await db
     .update(players)
-    .set({ verifiedAt: new Date(), authMethod: "habbo_motto", verificationCode: null })
+    .set({
+      verifiedAt: new Date(),
+      authMethod: "habbo_motto",
+      verificationCode: null,
+      figureString: habboUser.figureString,
+    })
     .where(eq(players.id, player.id));
 
   await mintPlayerSession(player.id);

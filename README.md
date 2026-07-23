@@ -64,7 +64,12 @@ npm run dev
 
 - Landing: [http://localhost:3000](http://localhost:3000)
 - Player interface: [http://localhost:3000/race](http://localhost:3000/race) — verifies via
-  Habbo motto (a one-time code the player sets as their in-game motto).
+  Habbo motto (a one-time code the player sets as their in-game motto). Once verified, shows
+  the player's real Habbo avatar (`https://www.habbo.com/habbo-imaging/avatarimage`, fed by
+  `players.figure_string` captured at verification time — not kept live-synced). The page's
+  main box is contextual: colored to match the player's current tile type (green at a Rest
+  tile, gold at a Merchant, etc. — see `TILE_STYLE`), showing turn/path guidance normally or
+  the shop panel when standing on a Merchant tile.
 - Admin: [http://localhost:3000/admin](http://localhost:3000/admin) — Discord OAuth,
   restricted to `ADMIN_DISCORD_IDS`.
 - Stream overlay (OBS browser source):
