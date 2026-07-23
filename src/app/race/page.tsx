@@ -87,7 +87,7 @@ export default async function RacePage() {
 
       {atShop ? (
         <section style={activeBoxStyle}>
-          <h2 style={{ fontSize: "1.6rem", marginBottom: 16 }}>Shop</h2>
+          <h2 style={{ fontSize: "1.6rem", marginBottom: 16 }}>{currentTile?.label ?? tileStyle.label}</h2>
           <div
             style={
               {
@@ -110,7 +110,7 @@ export default async function RacePage() {
         </section>
       ) : (
         <section style={activeBoxStyle}>
-          <h2 style={{ fontSize: "1.6rem", marginBottom: 12 }}>Race</h2>
+          <h2 style={{ fontSize: "1.6rem", marginBottom: 12 }}>{currentTile?.label ?? tileStyle.label}</h2>
           <p style={{ fontSize: "1.2rem" }}>
             {pendingRoute
               ? "Choose your path on the board below."
@@ -121,8 +121,9 @@ export default async function RacePage() {
         </section>
       )}
 
-      <h2 style={{ marginTop: 32 }}>Board</h2>
-      <RaceMap />
+      <div style={{ marginTop: 32 }}>
+        <RaceMap />
+      </div>
     </main>
   );
 }

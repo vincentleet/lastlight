@@ -90,13 +90,20 @@ export function RaceMap() {
   const width = maxDepth * COL_SPACING + PADDING * 2;
   const height = maxRow * ROW_SPACING + PADDING * 2;
   const byId = new Map(state.tiles.map((t) => [t.id, t]));
-  const selectableIds = new Set(state.pendingRouteOptions);
+
+  // Any tile directly reachable from where the player is standing can be
+  // clicked to preview it — not just ones with a decision pending.
+  const neighborIds = new Set(
+    state.edges.filter((edge) => edge.fromTileId === state.currentTileId).map((edge) => edge.toTileId)
+  );
+  const pendingIds = new Set(state.pendingRouteOptions);
   const selectedTile = selectedTileId ? byId.get(selectedTileId) : null;
+  const selectedIsPending = selectedTileId ? pendingIds.has(selectedTileId) : false;
 
   return (
     <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
       <div>
-        {selectableIds.size > 0 && !selectedTileId && (
+        {pendingIds.size > 0 && !selectedTileId && (
           <p style={{ marginBottom: 8 }}>Choose your path — click a highlighted node below.</p>
         )}
         <div style={{ position: "relative", overflowX: "auto", maxWidth: "100%" }}>
@@ -124,31 +131,34 @@ export function RaceMap() {
               const { x, y } = position(tile);
               const style = TILE_STYLE[tile.tileType] ?? TILE_STYLE.unknown;
               const isCurrent = tile.id === state.currentTileId;
-              const isSelectable = selectableIds.has(tile.id);
+              const isPending = pendingIds.has(tile.id);
+              const isNeighbor = neighborIds.has(tile.id);
+              const isClickable = isPending || isNeighbor;
               return (
                 <g
                   key={tile.id}
                   onClick={
-                    isSelectable
+                    isClickable
                       ? () => {
                           setSelectedTileId(tile.id);
                           setFormError(null);
+                          setCode("");
                         }
                       : undefined
                   }
-                  style={isSelectable ? { cursor: "pointer" } : undefined}
+                  style={isClickable ? { cursor: "pointer" } : undefined}
                 >
                   {isCurrent && (
                     <circle cx={x} cy={y} r={NODE_RADIUS + 6} fill="none" stroke="var(--accent)" strokeWidth={3} />
                   )}
-                  {isSelectable && (
+                  {isClickable && (
                     <circle
                       cx={x}
                       cy={y}
                       r={NODE_RADIUS + 6}
                       fill="none"
-                      stroke={tile.id === selectedTileId ? "var(--accent)" : "#f2b134"}
-                      strokeWidth={3}
+                      stroke={tile.id === selectedTileId ? "var(--accent)" : isPending ? "#f2b134" : "var(--line)"}
+                      strokeWidth={isPending ? 3 : 2}
                       strokeDasharray={tile.id === selectedTileId ? undefined : "3 3"}
                     />
                   )}
@@ -167,6 +177,7 @@ export function RaceMap() {
           {selectedTile &&
             (() => {
               const { x, y } = position(selectedTile);
+              const style = TILE_STYLE[selectedTile.tileType] ?? TILE_STYLE.unknown;
               return (
                 <div
                   style={{
@@ -174,37 +185,53 @@ export function RaceMap() {
                     left: x,
                     top: y + NODE_RADIUS + 34,
                     transform: "translateX(-50%)",
-                    background: "var(--bg)",
-                    border: "1px solid var(--accent)",
+                    background: style.color,
+                    color: "#0b0f14",
                     borderRadius: 10,
-                    padding: "10px 12px",
-                    minWidth: 200,
+                    padding: "12px 14px",
+                    minWidth: 220,
                     zIndex: 1,
+                    boxShadow: "0 6px 18px rgba(0, 0, 0, 0.35)",
                   }}
                 >
-                  <form onSubmit={submit}>
-                    <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>
-                      Codeword for {selectedTile.label ?? "this room"}
-                      <input
-                        value={code}
-                        onChange={(event) => setCode(event.target.value)}
-                        autoFocus
-                        required
-                        style={{ display: "block", marginTop: 4, width: "100%" }}
-                      />
-                    </label>
-                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                      <button type="submit" disabled={submitting}>
-                        {submitting ? "Checking…" : "Confirm"}
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>{selectedTile.label ?? style.label}</div>
+
+                  {selectedIsPending ? (
+                    <form onSubmit={submit}>
+                      <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>
+                        Enter the codeword for this room
+                        <input
+                          value={code}
+                          onChange={(event) => setCode(event.target.value)}
+                          autoFocus
+                          required
+                          style={{ display: "block", marginTop: 4, width: "100%" }}
+                        />
+                      </label>
+                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <button type="submit" disabled={submitting}>
+                          {submitting ? "Checking…" : "Confirm"}
+                        </button>
+                        <button type="button" onClick={() => setSelectedTileId(null)} disabled={submitting}>
+                          Cancel
+                        </button>
+                      </div>
+                      {formError && (
+                        <p style={{ color: "crimson", fontSize: 12, marginTop: 6 }}>{formError}</p>
+                      )}
+                    </form>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: 13, margin: 0 }}>{style.description}</p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTileId(null)}
+                        style={{ marginTop: 8 }}
+                      >
+                        Close
                       </button>
-                      <button type="button" onClick={() => setSelectedTileId(null)} disabled={submitting}>
-                        Cancel
-                      </button>
-                    </div>
-                    {formError && (
-                      <p style={{ color: "crimson", fontSize: 12, marginTop: 6 }}>{formError}</p>
-                    )}
-                  </form>
+                    </>
+                  )}
                 </div>
               );
             })()}

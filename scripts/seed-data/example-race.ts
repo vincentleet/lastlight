@@ -21,7 +21,7 @@ export const exampleTiles: Array<{
   codeword: string;
   effectConfig?: { pool: LandingEffect[] } | LandingEffect;
 }> = [
-  { key: "start", tileType: "rest", label: "Start", codeword: "CAMPFIRE" },
+  { key: "start", tileType: "rest", label: "Clearing", codeword: "CAMPFIRE" },
   {
     key: "event-1",
     tileType: "unknown",

@@ -67,9 +67,12 @@ npm run dev
   Habbo motto (a one-time code the player sets as their in-game motto). Once verified, shows
   the player's real Habbo avatar (`https://www.habbo.com/habbo-imaging/avatarimage`, fed by
   `players.figure_string` captured at verification time — not kept live-synced). The page's
-  main box is contextual: colored to match the player's current tile type (green at a Rest
-  tile, gold at a Merchant, etc. — see `TILE_STYLE`), showing turn/path guidance normally or
-  the shop panel when standing on a Merchant tile.
+  main box is contextual: titled with the current tile's name (e.g. "Clearing") and colored
+  to match its type (green at a Rest tile, gold at a Merchant, etc. — see `TILE_STYLE`),
+  showing turn/path guidance normally or the shop panel when standing on a Merchant tile. Any
+  tile directly connected to the player's position is clickable on the board for a same-style
+  preview (read-only, with that tile's flavor text) — except tiles that are an actual pending
+  route decision, which show the codeword form right there instead of a description.
 - Admin: [http://localhost:3000/admin](http://localhost:3000/admin) — Discord OAuth,
   restricted to `ADMIN_DISCORD_IDS`.
 - Stream overlay (OBS browser source):
